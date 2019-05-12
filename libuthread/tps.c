@@ -16,31 +16,31 @@
 
 int tps_init(int segv)
 {
-	/* TODO: Phase 2 */
+	return 0;
 }
 
 int tps_create(void)
 {
-	/* TODO: Phase 2 */
+	return 0;
 }
 
 int tps_destroy(void)
 {
-	/* TODO: Phase 2 */
+	return 0;
 }
 
 int tps_read(size_t offset, size_t length, char *buffer)
 {
-	/* TODO: Phase 2 */
+	return 0;
 }
 
 int tps_write(size_t offset, size_t length, char *buffer)
 {
-	/* TODO: Phase 2 */
+	return 0;
 }
 
 int tps_clone(pthread_t tid)
 {
-	/* TODO: Phase 2 */
+	return 0;
 }
 

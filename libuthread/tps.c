@@ -16,31 +16,31 @@
 
 int tps_init(int segv)
 {
-	return 0;
+  return 0;
 }
 
 int tps_create(void)
 {
-	return 0;
+  return 0;
 }
 
 int tps_destroy(void)
 {
-	return 0;
+  return 0;
 }
 
 int tps_read(size_t offset, size_t length, char *buffer)
 {
-	return 0;
+  return 0;
 }
 
 int tps_write(size_t offset, size_t length, char *buffer)
 {
-	return 0;
+  return 0;
 }
 
 int tps_clone(pthread_t tid)
 {
-	return 0;
+  return 0;
 }
 

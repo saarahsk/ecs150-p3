@@ -114,6 +114,28 @@ and pointer arithmetic to make sure that the source and destination pointers
 into memory are accurate.
 
 ##### tps_clone
+tps_clone doesn't call mmap but rather creates storage for the tps data region
+in the form of a tps struct and adds it into the list of tps structs we have. We
+set the data region to be the pointer to the target thread's data region and
+also set a marker that this tps data region is a reference.
+
+##### copy on write
+The assignment told us to dissociate the TPS object from the memory page with an
+extra level of indirection. It said we needed a page structure containing the
+memory page's address, and TPS can only point to such page structures. This way,
+two or more TPSes can point to the same page structure. Then, in order to
+keep track of how many TPSes are currently "sharing" the same memory
+page, the struct page must also contain a reference counter.
+
+When we were thinking about this, we felt it was too complicated to do it that
+way. Rather, we just kept a boolean in the tps struct on whether this tps struct
+had a reference to another thread's tps data region. When we were actually
+trying to write to the tps data regino, we just checked this boolean to see if
+it was a reference. If it was, we then did the work of creating a new tps data
+region and copying the memory over before allowing the write.
+
+We felt this was much easier than what the assignment proposed and it seemed to
+produce the same results.
 
 # Testing
 For P1, we utilized the test cases provided to us - sem_prime.c, sem_count.c,

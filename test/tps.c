@@ -43,6 +43,7 @@ void *thread2(void* arg)
 
 	/* Destroy TPS and quit */
 	tps_destroy();
+    free(buffer);
 	return NULL;
 }
 
@@ -84,6 +85,7 @@ void *thread1(void* arg)
 	/* Wait for thread2 to die, and quit */
 	pthread_join(tid, NULL);
 	tps_destroy();
+    free(buffer);
 	return NULL;
 }
 

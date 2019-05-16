@@ -36,8 +36,8 @@ whose absolute value is the count of the number of threads currently blocked
 in sem_down().
 
 # Testing
-For P1, we utilized the test cases provided to us and wrote a couple simple
-ones in addition.
+For P1, we utilized the test cases provided to us - sem_prime.c, sem_count.c,
+and sem_buffer.c We also added the segfault test given to us in class.  
 
 # Resources
 Piazza post @426 brought our attention to utilizing pthread. 

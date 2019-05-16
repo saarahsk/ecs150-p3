@@ -29,6 +29,7 @@ static pthread_t get_tid()
   if (tid >= MAX_THREADS) {
     fprintf(stderr, "tps library only supports a maximum of %d threads\n",
         MAX_THREADS);
+    fprintf(stderr, "current thread id: %ld\n", tid);
     abort();
   }
 

@@ -49,6 +49,7 @@ static int tid_has_tps(pthread_t tid) {
 static int tps_io_check(size_t offset, size_t length, char* buffer) {
   pthread_t tid = get_tid();
 
+  // ensure the thread even has a tps
   int ret = tid_has_tps(tid);
   if (ret == 0) {
     return -1;
@@ -59,6 +60,7 @@ static int tps_io_check(size_t offset, size_t length, char* buffer) {
     return -1;
   }
 
+  // can't read or write from a null buffer
   if (buffer == NULL) {
     return -1;
   }
@@ -66,9 +68,10 @@ static int tps_io_check(size_t offset, size_t length, char* buffer) {
   return 0;
 }
 
-static int tps_mmap_set_prot(int prot) {
-  pthread_t tid = get_tid();
-
+// helper function to change protection on a particular tps. Returns -1 if there
+// was an error, 0 if success.
+static int tps_mmap_set_prot(pthread_t tid, int prot) {
+  // calling mmap on the same region can change its protectrion
   int flags = MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS;
   void* ret = mmap(tps_table[tid].data, TPS_SIZE, prot, flags, 0, 0);
   if (ret == MAP_FAILED) {
@@ -79,16 +82,16 @@ static int tps_mmap_set_prot(int prot) {
   return 0;
 }
 
-static int tps_enable_read(void) {
-  return tps_mmap_set_prot(PROT_READ);
+static int tps_enable_read(pthread_t tid) {
+  return tps_mmap_set_prot(tid, PROT_READ);
 }
 
-static int tps_enable_write(void) {
-  return tps_mmap_set_prot(PROT_WRITE);
+static int tps_enable_write(pthread_t tid) {
+  return tps_mmap_set_prot(tid, PROT_WRITE);
 }
 
-static int tps_disable_read_write(void) {
-  return tps_mmap_set_prot(PROT_NONE);
+static int tps_disable_read_write(pthread_t tid) {
+  return tps_mmap_set_prot(tid, PROT_NONE);
 }
 
 int tps_init(int segv)
@@ -142,12 +145,14 @@ int tps_destroy(void)
 {
   pthread_t tid = get_tid();
 
+  // can't destroy a tps that doesn't exist
   int ret = tid_has_tps(tid);
   if (ret == 0) {
     return -1;
   }
 
-  int ret = munmap(tps_table[tid].data, TPS_SIZE);
+  // munmap is the mmap equivalent of free
+  ret = munmap(tps_table[tid].data, TPS_SIZE);
   if (ret == -1) {
     return -1;
   }
@@ -164,9 +169,9 @@ int tps_read(size_t offset, size_t length, char *buffer)
   }
 
   pthread_t tid = get_tid();
-  tps_enable_read();
+  tps_enable_read(tid);
   memcpy(buffer, tps_table[tid].data + offset, length);
-  tps_disable_read_write();
+  tps_disable_read_write(tid);
   return 0;
 }
 
@@ -178,14 +183,60 @@ int tps_write(size_t offset, size_t length, char *buffer)
   }
 
   pthread_t tid = get_tid();
-  tps_enable_write();
+  tps_enable_write(tid);
   memcpy(tps_table[tid].data + offset, buffer, length);
-  tps_disable_read_write();
+  tps_disable_read_write(tid);
   return 0;
 }
 
 int tps_clone(pthread_t tid)
 {
+  // don't want to read outside of tps_table
+  if (tid >= MAX_THREADS) {
+    return -1;
+  }
+
+  // ensure that the target thread even has a tps
+  int ret = tid_has_tps(tid);
+  if (ret == -1) {
+    return -1;
+  }
+
+  // cannot overwrite our tps if we already have one
+  pthread_t self = get_tid();
+  ret = tid_has_tps(self);
+  if (ret == 0) {
+    return -1;
+  }
+
+  // enable reads from the target thread's TPS
+  ret = tps_enable_read(tid);
+  if (ret == -1) {
+    return -1;
+  }
+
+  // create new memory region for current thread's tps
+  void* data = mmap(NULL, TPS_SIZE, PROT_NONE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
+  if (data == MAP_FAILED) {
+    ret = tps_disable_read_write(tid);
+    if (ret == -1) {
+      fprintf(stderr, "failed disabling read/write on target thread's tps\n");
+      fprintf(stderr, "library reached unrecoverable error\n");
+      abort();
+    }
+
+    return -1;
+  }
+
+  // copy the data over
+  tps_table[self].data = data;
+  memcpy(tps_table[self].data, tps_table[tid].data, TPS_SIZE);
+
+  // disable reads and writes from the target thread's TPS
+  ret = tps_disable_read_write(tid);
+  if (ret == -1) {
+    return -1;
+  }
+
   return 0;
 }
-

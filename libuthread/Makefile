@@ -1,7 +1,7 @@
 # Target library
 lib := libuthread.a
-specificDelete := sem.o 
-objs := sem.o thread.o queue.o 
+specificDelete := sem.o
+objs := sem.o thread.o queue.o
 
 #General gcc options
 CC := gcc
@@ -10,7 +10,7 @@ CFLAGS += -g
 
 ifneq ($(V), 1)
 Q = @
-endif 
+endif
 
 all: $(lib)
 

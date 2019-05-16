@@ -3,6 +3,7 @@ programs := \
 	sem_count.x \
 	sem_buffer.x \
 	sem_prime.x \
+	segfault_test.x \
 	tps.x
 
 # User-level thread library
@@ -42,6 +43,9 @@ endif
 
 # Linker options
 LDFLAGS := -L$(UTHREADPATH) -luthread
+
+# Updating LDFLAGS
+segfault_test.x: LDFLAGS += -Wl,--wrap=mmap
 
 # Include path
 INCLUDE := -I$(UTHREADPATH)

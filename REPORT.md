@@ -83,6 +83,38 @@ These functions are helper functions as well to make it easier to change the
 permissions on a given memory region. We introduced it to our code to make
 things a bit easier to read and avoid code repetition.
 
+##### segv_handler
+This function was mostly copied from the assignment handout aside from the parts
+we had to fill in. The main change here was how to find a tps that was within
+the memory region that just had a page fault. We used the addr_in_tps function
+to do this.
+
+##### tps_init
+We have a global tps_list pointer to a queue which if it contains a non-null
+address, this function has been called before. This is how we ensured that it
+isn't called twice and we don't overwrite what we did before. The signal
+handling code was taken from the assignment handout.
+
+##### tps_create
+This function mmaps new memory with no read or write permissions initially and
+creates the memory to hold the tps data region along with the supporting
+informatino around it (e.g. which thread owns it, whether it's a reference). We
+then add the tps struct to the queue so that we can search for it later.
+
+##### tps_destroy
+This function not only removes the tps struct from the queue, but uses munmap to
+as the equivalent of free with mmap'ed data. We then free the tps struct that
+was used to house the tps data region.
+
+##### tps_read, tps_write
+These functions do the basic santity checks that we spoke about earlier, find
+the tps in the queue (based on the owning thread id), and use the helper
+functions to enable read/write permissions. We use memcpy to copy the data over
+and pointer arithmetic to make sure that the source and destination pointers
+into memory are accurate.
+
+##### tps_clone
+
 # Testing
 For P1, we utilized the test cases provided to us - sem_prime.c, sem_count.c,
 and sem_buffer.c We also added the segfault test given to us in class.

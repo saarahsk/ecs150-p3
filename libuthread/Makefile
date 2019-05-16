@@ -1,7 +1,7 @@
 # Target library
 lib := libuthread.a
-specificDelete := sem.o
-objs := sem.o thread.o queue.o
+specificDelete := sem.o tps.o
+objs := thread.o queue.o $(specificDelete)
 
 #General gcc options
 CC := gcc

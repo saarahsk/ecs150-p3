@@ -109,7 +109,7 @@ int sem_getvalue(sem_t sem, int *sval)
   }
 
   if (sem->count > 0){
-    sem->count = *sval;
+    *sval = sem->count;
     return 0;
   }
 

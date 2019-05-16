@@ -33,16 +33,15 @@ int sem_destroy(sem_t sem)
     return -1;
   }
 
-  queue_destroy(sem->waiting);
-
-  //sem->count == 0 should take care of checking for blocked threads
-  int result = 0;
-  if (sem->count == 0){
-    result = -1;
+  // cannot delete a semaphore while other threads are waiting on it
+  int threads_waiting = queue_length(sem->waiting);
+  if (threads_waiting > 0) {
+    return -1;
   }
 
+  queue_destroy(sem->waiting);
   free(sem);
-  return result;
+  return 0;
 }
 
 int sem_down(sem_t sem)

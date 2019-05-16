@@ -62,7 +62,7 @@ int sem_down(sem_t sem)
     }
 
     //attempt to enqueue first, then block
-    if (!thread_block()){
+    if (thread_block() == -1){
       exit_critical_section();
       return -1;
     }
@@ -93,7 +93,7 @@ int sem_up(sem_t sem)
     return -1;
   }
 
-  if (!thread_unblock(p_tid)){
+  if (thread_unblock(p_tid) == -1){
     exit_critical_section();
     return -1;
   }

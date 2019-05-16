@@ -17,6 +17,7 @@ struct tps
 {
   pthread_t owner_tid;
   void* data;
+  int is_reference; // whether this tps is referencing another thread's tps data
 };
 
 // overload the usage of a queue for storing our tps list
@@ -204,6 +205,7 @@ int tps_create(void)
 
   tps->owner_tid = tid;
   tps->data = data;
+  tps->is_reference = 0;
 
   // add the tps to the tps list
   int ret = queue_enqueue(tps_list, tps);
@@ -284,8 +286,42 @@ int tps_write(size_t offset, size_t length, char *buffer)
     return -1;
   }
 
-  if (!tps_enable_write(tps)) {
-    return -1;
+  // perform the copy on write if we have a reference and not our own data
+  if (tps->is_reference) {
+    // enable reads from the referenced tps data
+    if (!tps_enable_read(tps)) {
+      return -1;
+    }
+
+    // create new memory now that we are trying to write
+    void* data = mmap(NULL, TPS_SIZE, PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
+    if (data == MAP_FAILED) {
+      return -1;
+    }
+
+    // copy the data over
+    memcpy(data, tps->data, TPS_SIZE);
+
+    // disable reads from the referenced tps data
+    if (!tps_disable_read_write(tps)) {
+      return -1;
+    }
+
+    // update current tps with the new data region
+    tps->data = data;
+
+    // we no longer have a reference
+    tps->is_reference = 0;
+
+    // new data region we just made purposely has write permissions left enabled
+    // so that the following code can write into it
+  }
+  else {
+    // not a memory reference so we have our own personal copy, so no need to do
+    // copy on write -- we can just enable writes on the data region
+    if (!tps_enable_write(tps)) {
+      return -1;
+    }
   }
 
   memcpy(tps->data + offset, buffer, length);
@@ -312,38 +348,18 @@ int tps_clone(pthread_t tid)
     return -1;
   }
 
-  // create a tps for ourselves
-  int ret = tps_create();
+  // create storage for our tps -- don't use tps_create because we don't want to
+  // run mmap again
+  struct tps* self_tps = malloc(sizeof(struct tps));
+  memset(self_tps, 0, sizeof(struct tps));
+
+  self_tps->owner_tid = self;
+  self_tps->data = target_tps->data; // reference it for now, do memcpy on write
+  self_tps->is_reference = 1;
+
+  // add the tps to the tps list
+  int ret = queue_enqueue(tps_list, self_tps);
   if (ret == -1) {
-    return -1;
-  }
-
-  // get a reference to our new tps
-  struct tps* self_tps = get_tps(self);
-  if (self_tps == NULL) {
-    return -1;
-  }
-
-  // enable reads from the target thread's tps
-  if (!tps_enable_read(target_tps)) {
-    return -1;
-  }
-
-  // enable writes into our tps
-  if (!tps_enable_write(self_tps)) {
-    return -1;
-  }
-
-  // copy the data over
-  memcpy(self_tps->data, target_tps->data, TPS_SIZE);
-
-  // disable reads and writes from the target thread's tps
-  if (!tps_disable_read_write(target_tps)) {
-    return -1;
-  }
-
-  // disable reads and writes from our tps
-  if (!tps_disable_read_write(self_tps)) {
     return -1;
   }
 

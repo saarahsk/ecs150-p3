@@ -37,12 +37,31 @@ static int find_item(void *data, void *arg)
   return 0;
 }
 
+// callback function to find a tps that contains the given address
+static int addr_in_tps(void *data, void *arg) {
+  struct tps* current_tps = (struct tps*) data;
+  void* addr = arg;
+
+  // get difference in addresses from start of current_tps's region and where
+  // addr sits in memory. If that is less than TPS_SIZE, we are within the tps
+  // range
+  if (addr - current_tps->data <= TPS_SIZE) {
+    return 1;
+  }
+
+  return 0;
+}
+
 // returns a pointer to the tps found, NULL if not found
 static struct tps* get_tps(pthread_t tid)
 {
   struct tps* tps = NULL;
   int ret = queue_iterate(tps_list, find_item, &tid, (void**)&tps);
   if (ret == -1) {
+    return NULL;
+  }
+
+  if (tps == NULL) {
     return NULL;
   }
 
@@ -112,6 +131,30 @@ static int tps_disable_read_write(struct tps* tps)
 
 // TPS LIBRARY FUNCTIONS -------------------------------------------------------
 
+static void segv_handler(int sig, siginfo_t *si, void *context)
+{
+
+  // get the address corresponding to the beginning of the page where the
+  // fault occurred
+  void *p_fault = (void*)((uintptr_t)si->si_addr & ~(TPS_SIZE - 1));
+
+  // iterate through all the TPS areas and find if p_fault matches one of them
+  struct tps* tps = NULL;
+  queue_iterate(tps_list, addr_in_tps, &p_fault, (void**)&tps);
+
+  // found a tps that has p_fault in its data range
+  if (tps != NULL) {
+    fprintf(stderr, "TPS protection error!\n");
+  }
+
+  // in any case, restore the default signal handlers
+  signal(SIGSEGV, SIG_DFL);
+  signal(SIGBUS, SIG_DFL);
+
+  // and transmit the signal again in order to cause the program to crash
+  raise(sig);
+}
+
 int tps_init(int segv)
 {
   // protect from reinitialization
@@ -125,6 +168,14 @@ int tps_init(int segv)
    // user didn't ask for segv handling, nothing more to do here
     return 0;
   }
+
+  struct sigaction sa;
+  sigemptyset(&sa.sa_mask);
+
+  sa.sa_flags = SA_SIGINFO;
+  sa.sa_sigaction = segv_handler;
+  sigaction(SIGBUS, &sa, NULL);
+  sigaction(SIGSEGV, &sa, NULL);
 
   return 0;
 }

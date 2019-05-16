@@ -102,15 +102,11 @@ static int tps_mmap_set_prot(struct tps* tps, int prot)
     return 0;
   }
 
-  static const int flags = MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS;
-
-  // calling mmap on the same region can change its protectrion
-  void* ret = mmap(tps->data, TPS_SIZE, prot, flags, 0, 0);
-  if (ret == MAP_FAILED) {
+  int ret = mprotect(tps->data, TPS_SIZE, prot);
+  if (ret == -1) {
     return 0;
   }
 
-  tps->data = ret;
   return 1;
 }
 
